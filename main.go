@@ -30,8 +30,11 @@ func main() {
 	pflag.IntVarP(&port, "port", "o", 32512, "Port number to use")
 	pflag.Parse()
 
+
+	hash_pass := hashPassword(password)
+
 	if isServer {
-		startServer(password, port)
+		startServer(hash_pass, port)
 	} else if ipAddr != "" {
 		if im_message == "" {
 			fmt.Println("Please provide a message with -m to send.")
@@ -94,23 +97,28 @@ func startServer(expectedPassword string, port int) {
 	}
 }
 
+
 func handleConnection(conn net.Conn, expectedPassword string) error {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 
 	// Read and verify password
+	log.Println("Waiting to read password...")
 	passwordHash, err := reader.ReadString('\n')
 	if err != nil {
-		return fmt.Errorf("error reading password: %v", err)
+		return fmt.Errorf("error reading password: %v\n", err)
 	}
 	passwordHash = passwordHash[:len(passwordHash)-1] // Remove newline character
 
+	log.Printf("Received password hash: %s\n", passwordHash)
 	if passwordHash != expectedPassword {
+		fmt.Printf("expected pass: %v\n", expectedPassword)
 		return fmt.Errorf("password verification failed")
 	}
 
 	// Process the actual message
 	for {
+		log.Println("Waiting to read message...")
 		message, err := reader.ReadString('\n')
 		if err != nil {
 			if err.Error() != "EOF" {
@@ -118,7 +126,7 @@ func handleConnection(conn net.Conn, expectedPassword string) error {
 			}
 			return nil
 		}
-		fmt.Printf("Received: %s", message)
+		log.Printf("Received message: %s", message)
 		parse_im(&message)
 
 		// Send response back to client
