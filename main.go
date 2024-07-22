@@ -119,6 +119,7 @@ func handleConnection(conn net.Conn, expectedPassword string) error {
 			return nil
 		}
 		fmt.Printf("Received: %s", message)
+		parse_im(&message)
 	}
 }
 
