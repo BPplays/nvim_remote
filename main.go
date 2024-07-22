@@ -59,6 +59,7 @@ var cos OS = getCurrentOS()
 
 var timeout int
 var get_im bool
+var debug bool
 
 
 func main() {
@@ -73,6 +74,7 @@ func main() {
 	pflag.StringVarP(&im_message, "message", "m", "", "UTF-8 string to send")
 	pflag.StringVarP(&password, "password", "p", "", "Password (hashed with SHA-512)")
 	pflag.BoolVarP(&isServer, "receive", "d", false, "Receive UTF-8 string over TCP")
+	pflag.BoolVarP(&debug, "debug", "e", false, "Receive UTF-8 string over TCP")
 	pflag.IntVarP(&port, "port", "o", 32512, "Port number to use")
 	pflag.IntVarP(&timeout, "timeout", "t", 3000, "timeout in ms")
 
