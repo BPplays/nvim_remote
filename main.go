@@ -57,7 +57,7 @@ func getCurrentOS() OS {
 var cos OS = getCurrentOS()
 
 
-
+var timeout int
 
 
 func main() {
@@ -73,6 +73,8 @@ func main() {
 	pflag.StringVarP(&password, "password", "p", "", "Password (hashed with SHA-512)")
 	pflag.BoolVarP(&isServer, "receive", "d", false, "Receive UTF-8 string over TCP")
 	pflag.IntVarP(&port, "port", "o", 32512, "Port number to use")
+	pflag.IntVarP(&timeout, "timeout", "t", 3000, "timeout in ms")
+
 	pflag.Parse()
 
 
@@ -273,7 +275,7 @@ func sendToIP(ipAddr string, message string, password string, port int) {
 		}
 
 	}
-	dialer := &net.Dialer{Timeout: 50 * time.Second}
+	dialer := &net.Dialer{Timeout: time.Duration(timeout) * time.Millisecond}
 	conn, err := dialer.Dial("tcp", ipAddr+":"+strconv.Itoa(port))
 	if err != nil {
 		log.Fatalf("Error connecting to %s:%d: %v", ipAddr, port, err)
@@ -294,7 +296,7 @@ func sendToIP(ipAddr string, message string, password string, port int) {
 	}
 
 	// Set a read deadline for receiving a response
-	conn.SetReadDeadline(time.Now().Add(50 * time.Second))
+	conn.SetReadDeadline(time.Now().Add(time.Duration(timeout) * time.Millisecond))
 
 	// Read response from the server
 	response, err := bufio.NewReader(conn).ReadString('\n')
