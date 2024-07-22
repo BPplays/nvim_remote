@@ -8,12 +8,57 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/spf13/pflag"
 )
+
+// OS represents the operating system type.
+type OS int
+
+// Define constants for each operating system.
+const (
+	Windows OS = iota
+	MacOS
+	Linux
+)
+
+func (os OS) String() string {
+	switch os {
+	case Windows:
+		return "Windows"
+	case MacOS:
+		return "MacOS"
+	case Linux:
+		return "Linux"
+	default:
+		return "Unknown"
+	}
+}
+
+
+func getCurrentOS() OS {
+	switch runtime.GOOS {
+	case "windows":
+		return Windows
+	case "darwin":
+		return MacOS
+	case "linux":
+		return Linux
+	default:
+		return -1
+	}
+}
+
+var cos OS = getCurrentOS()
+
+
+
+
 
 func main() {
 	// Define flags
@@ -58,6 +103,24 @@ var im_map = map[string]string{
 	"ibus":          "",
 }
 
+// checkCommandExists checks if a command exists by trying to execute it.
+func checkCommandExists(command string) bool {
+	_, err := exec.LookPath(command)
+	return err == nil
+}
+
+// checkInputMethodFramework checks if fcitx5-remote, fcitx-remote, or ibus is installed.
+func get_lin_im() string {
+	if checkCommandExists("fcitx5-remote") {
+		return "fcitx5-remote"
+	} else if checkCommandExists("fcitx-remote") {
+		return "fcitx-remote"
+	} else if checkCommandExists("ibus") {
+		return "ibus"
+	}
+	return "none"
+}
+
 func parse_im(msg *string) {
 	spl := strings.Split(*msg, ";")
 
@@ -74,6 +137,34 @@ func parse_im(msg *string) {
 	}
 
 }
+
+
+func switch_im() {
+	im_cmd := ""
+	im_mode := ""
+	switch cos {
+	case Windows:
+		im_cmd = "im-select.exe"
+		im_mode = im_map["im-select"]
+
+	case Linux:
+		switch get_lin_im() {
+		case "fcitx5-remote":
+			im_cmd = "fcitx5-remote"
+		}
+	}
+
+	cmd := exec.Command(im_cmd, im_mode)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("Error executing command: %s\n", err)
+		return
+	}
+
+	// Print the output
+	fmt.Printf("%v output: %s\n", im_cmd, output)
+}
+
 
 func startServer(expectedPassword string, port int) {
 	listener, err := net.Listen("tcp", ":"+strconv.Itoa(port))
@@ -128,6 +219,8 @@ func handleConnection(conn net.Conn, expectedPassword string) error {
 		}
 		log.Printf("Received message: %s", message)
 		parse_im(&message)
+		fmt.Println(im_map)
+		switch_im()
 
 		// Send response back to client
 		response := "Message processed successfully\n"
