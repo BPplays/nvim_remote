@@ -138,6 +138,28 @@ func parse_im(msg *string) {
 
 }
 
+func isIPv6(address string) bool {
+	ip := net.ParseIP(address)
+	return ip != nil && ip.To4() == nil
+}
+
+func FormatIPv6(ip string) (string, error) {
+	// Parse the IP address
+	parsedIP := net.ParseIP(ip)
+	if parsedIP == nil {
+		return "", fmt.Errorf("invalid IP address")
+	}
+
+	// Check if it's an IPv6 address
+	if parsedIP.To4() == nil {
+		// It's an IPv6 address, format it with brackets
+		return fmt.Sprintf("[%s]", ip), nil
+	}
+
+	// Not an IPv6 address
+	return "", fmt.Errorf("the IP address is not IPv6")
+}
+
 
 func switch_im() {
 	im_cmd := ""
@@ -232,6 +254,14 @@ func handleConnection(conn net.Conn, expectedPassword string) error {
 }
 
 func sendToIP(ipAddr string, message string, password string, port int) {
+	if isIPv6(ipAddr) {
+		var err error
+		ipAddr, err = FormatIPv6(ipAddr)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+	}
 	dialer := &net.Dialer{Timeout: 50 * time.Second}
 	conn, err := dialer.Dial("tcp", ipAddr+":"+strconv.Itoa(port))
 	if err != nil {
