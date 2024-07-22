@@ -120,6 +120,13 @@ func handleConnection(conn net.Conn, expectedPassword string) error {
 		}
 		fmt.Printf("Received: %s", message)
 		parse_im(&message)
+
+		// Send response back to client
+		response := "Message processed successfully\n"
+		_, err = conn.Write([]byte(response))
+		if err != nil {
+			return fmt.Errorf("error sending response: %v", err)
+		}
 	}
 }
 
