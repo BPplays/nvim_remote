@@ -59,6 +59,10 @@ func parse_im(msg *string) {
 	spl := strings.Split(*msg, ";")
 
 	for _, v := range spl {
+		if len(v) > 10000 {
+			continue
+		}
+
 		kv := strings.Split(v, "=")
 		if _, exists := im_map[kv[0]]; exists {
 			// Set the value for the existing key
