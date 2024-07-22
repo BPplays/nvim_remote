@@ -58,6 +58,7 @@ var cos OS = getCurrentOS()
 
 
 var timeout int
+var get_im bool
 
 
 func main() {
@@ -84,8 +85,8 @@ func main() {
 		startServer(hash_pass, port)
 	} else if ipAddr != "" {
 		if im_message == "" {
-			fmt.Println("Please provide a message with -m to send.")
-			os.Exit(1)
+			get_im = true
+			im_message = get_im_str
 		}
 		if password == "" {
 			fmt.Println("Please provide a password with -p.")
@@ -201,6 +202,45 @@ func switch_im() {
 }
 
 
+
+func ret_im() string {
+	im_cmd := ""
+	var im_mode []string
+	switch cos {
+	case Windows:
+		im_cmd = "im-select.exe"
+
+	case Linux:
+		switch get_lin_im() {
+		case "fcitx5-remote":
+			im_cmd = "fcitx5-remote"
+			im_mode = append(im_mode, "-n")
+
+		case "fcitx-remote":
+			log.Fatalln("fcitx-remote unsupported")
+
+		case "ibus":
+			log.Fatalln("ibus unsupported")
+		}
+
+	case MacOS:
+		log.Fatalln("MacOS is unsupported")
+	}
+
+	cmd := exec.Command(im_cmd, im_mode...)
+	output, err := cmd.Output()
+	if err != nil {
+		fmt.Printf("Error executing command: %s\n", err)
+		return ""
+	}
+
+	// Print the output
+	fmt.Printf("%v output: %s\n", im_cmd, output)
+	return string(output)
+}
+
+
+
 func startServer(expectedPassword string, port int) {
 	listener, err := net.Listen("tcp", ":"+strconv.Itoa(port))
 	if err != nil {
@@ -224,7 +264,13 @@ func startServer(expectedPassword string, port int) {
 }
 
 
+
+const get_im_str string = "mode:getim"
+
+
+
 func handleConnection(conn net.Conn, expectedPassword string) error {
+	var get_im bool = false
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 
@@ -234,7 +280,6 @@ func handleConnection(conn net.Conn, expectedPassword string) error {
 	if err != nil {
 		return fmt.Errorf("error reading password: %v\n", err)
 	}
-	passwordHash = passwordHash[:len(passwordHash)-1] // Remove newline character
 
 	log.Printf("Received password hash: %s\n", passwordHash)
 	if passwordHash != expectedPassword {
@@ -252,13 +297,21 @@ func handleConnection(conn net.Conn, expectedPassword string) error {
 			}
 			return nil
 		}
+		response := "Message processed successfully\n"
+
 		log.Printf("Received message: %s", message)
-		parse_im(&message)
-		fmt.Println(im_map)
-		switch_im()
+		if message == get_im_str {
+			get_im = true
+		}
+		if get_im {
+			response = ret_im()
+		} else {
+			parse_im(&message)
+			fmt.Println(im_map)
+			switch_im()
+		}
 
 		// Send response back to client
-		response := "Message processed successfully\n"
 		_, err = conn.Write([]byte(response))
 		if err != nil {
 			return fmt.Errorf("error sending response: %v", err)
@@ -284,13 +337,13 @@ func sendToIP(ipAddr string, message string, password string, port int) {
 
 	// Send password hash
 	passwordHash := hashPassword(password)
-	_, err = conn.Write([]byte(passwordHash + "\n"))
+	_, err = conn.Write([]byte(passwordHash))
 	if err != nil {
 		log.Fatalf("Error sending password hash: %v", err)
 	}
 
 	// Send message
-	_, err = conn.Write([]byte(message + "\n"))
+	_, err = conn.Write([]byte(message))
 	if err != nil {
 		log.Fatalf("Error sending data: %v", err)
 	}
