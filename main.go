@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -17,13 +18,13 @@ import (
 func main() {
 	// Define flags
 	var ipAddr string
-	var message string
+	var im_message string
 	var password string
 	var isServer bool
 	var port int
 
 	pflag.StringVarP(&ipAddr, "ip", "i", "", "IP address to send the UTF-8 string to")
-	pflag.StringVarP(&message, "message", "m", "", "UTF-8 string to send")
+	pflag.StringVarP(&im_message, "message", "m", "", "UTF-8 string to send")
 	pflag.StringVarP(&password, "password", "p", "", "Password (hashed with SHA-512)")
 	pflag.BoolVarP(&isServer, "receive", "d", false, "Receive UTF-8 string over TCP")
 	pflag.IntVarP(&port, "port", "o", 32512, "Port number to use")
@@ -32,7 +33,7 @@ func main() {
 	if isServer {
 		startServer(password, port)
 	} else if ipAddr != "" {
-		if message == "" {
+		if im_message == "" {
 			fmt.Println("Please provide a message with -m to send.")
 			os.Exit(1)
 		}
@@ -40,10 +41,31 @@ func main() {
 			fmt.Println("Please provide a password with -p.")
 			os.Exit(1)
 		}
-		sendToIP(ipAddr, message, password, port)
+		sendToIP(ipAddr, im_message, password, port)
 	} else {
 		fmt.Println("Please provide either an IP address with -i or use -d to receive data.")
 	}
+}
+
+var im_map = map[string]string{
+	"im-select":     "",
+	"im-select-mac": "",
+	"fcitx5-remote": "",
+	"fcitx-remote":  "",
+	"ibus":          "",
+}
+
+func parse_im(msg *string) {
+	spl := strings.Split(*msg, ";")
+
+	for _, v := range spl {
+		kv := strings.Split(v, "=")
+		if _, exists := im_map[kv[0]]; exists {
+			// Set the value for the existing key
+			im_map[kv[0]] = kv[1]
+		}
+	}
+
 }
 
 func startServer(expectedPassword string, port int) {
@@ -139,4 +161,3 @@ func hashPassword(password string) string {
 	hash.Write([]byte(password))
 	return hex.EncodeToString(hash.Sum(nil))
 }
-
