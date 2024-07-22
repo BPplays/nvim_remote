@@ -163,20 +163,31 @@ func FormatIPv6(ip string) (string, error) {
 
 func switch_im() {
 	im_cmd := ""
-	im_mode := ""
+	var im_mode []string
 	switch cos {
 	case Windows:
 		im_cmd = "im-select.exe"
-		im_mode = im_map["im-select"]
+		im_mode = append(im_mode, im_map["im-select"])
 
 	case Linux:
 		switch get_lin_im() {
 		case "fcitx5-remote":
 			im_cmd = "fcitx5-remote"
+			im_mode = append(im_mode, "-o")
+			im_mode = append(im_mode, im_map["fcitx5-remote"])
+
+		case "fcitx-remote":
+			log.Fatalln("fcitx-remote unsupported")
+
+		case "ibus":
+			log.Fatalln("ibus unsupported")
 		}
+
+	case MacOS:
+		log.Fatalln("MacOS is unsupported")
 	}
 
-	cmd := exec.Command(im_cmd, im_mode)
+	cmd := exec.Command(im_cmd, im_mode...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Printf("Error executing command: %s\n", err)
