@@ -339,12 +339,18 @@ func sendToIP(ipAddr string, message string, password string, port int) {
 
 	// Send password hash
 	passwordHash := hashPassword(password)
+	if debug {
+		fmt.Println("sending pass")
+	}
 	_, err = conn.Write([]byte(passwordHash))
 	if err != nil {
 		log.Fatalf("Error sending password hash: %v", err)
 	}
 
 	// Send message
+	if debug {
+		fmt.Println("sending msg")
+	}
 	_, err = conn.Write([]byte(message))
 	if err != nil {
 		log.Fatalf("Error sending data: %v", err)
@@ -354,6 +360,9 @@ func sendToIP(ipAddr string, message string, password string, port int) {
 	conn.SetReadDeadline(time.Now().Add(time.Duration(timeout) * time.Millisecond))
 
 	// Read response from the server
+	if debug {
+		fmt.Println("recv resp")
+	}
 	response, err := bufio.NewReader(conn).ReadString('\n')
 	if err != nil {
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
