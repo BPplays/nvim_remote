@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"crypto/sha512"
+	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
 	"log"
@@ -286,7 +287,7 @@ func handleConnection(conn net.Conn, expectedPassword string) error {
 
 
 	log.Printf("Received password hash: %s\n", passwordHash)
-	if passwordHash != expectedPassword {
+	if secCompareStrings(passwordHash, expectedPassword) != true {
 		fmt.Printf("expected pass: %v\n", expectedPassword)
 		return fmt.Errorf("password verification failed")
 	}
@@ -486,3 +487,17 @@ func hashPassword(password string) string {
 	hash.Write(str2nulbs(password))
 	return hex.EncodeToString(hash.Sum(nil))
 }
+
+
+
+// CompareStrings securely compares two strings using constant-time comparison
+func secCompareStrings(str1, str2 string) bool {
+	// Convert strings to byte slices
+	bytes1 := []byte(str1)
+	bytes2 := []byte(str2)
+
+	// Use constant-time comparison
+	return subtle.ConstantTimeCompare(bytes1, bytes2) == 1
+}
+
+
