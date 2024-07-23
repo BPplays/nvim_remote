@@ -279,7 +279,7 @@ func handleConnection(conn net.Conn, expectedPassword string) error {
 
 	// Read and verify password
 	log.Println("Waiting to read password...")
-	passwordHash, err := reader.ReadString(null_b)
+	passwordHash, err := readUntilNull(reader)
 	if err != nil {
 		return fmt.Errorf("error reading password: %v\n", err)
 	}
@@ -295,7 +295,7 @@ func handleConnection(conn net.Conn, expectedPassword string) error {
 	for {
 		log.Println("Waiting to read message...")
 		conn.Write(str2nulbs(send_pass_str))
-		message, err := reader.ReadString(null_b)
+		message, err := readUntilNull(reader)
 		if err != nil {
 			if err.Error() != "EOF" {
 				return fmt.Errorf("error reading from connection: %v", err)
