@@ -268,6 +268,7 @@ func startServer(expectedPassword string, port int) {
 
 
 const get_im_str string = "mode:getim"
+const set_im_str string = "set_modes"
 
 
 
@@ -278,7 +279,7 @@ func handleConnection(conn net.Conn, expectedPassword string) error {
 
 	// Read and verify password
 	log.Println("Waiting to read password...")
-	passwordHash, err := reader.ReadString('\n')
+	passwordHash, err := reader.ReadString(null_b)
 	if err != nil {
 		return fmt.Errorf("error reading password: %v\n", err)
 	}
@@ -292,7 +293,7 @@ func handleConnection(conn net.Conn, expectedPassword string) error {
 	// Process the actual message
 	for {
 		log.Println("Waiting to read message...")
-		message, err := reader.ReadString('\n')
+		message, err := reader.ReadString(null_b)
 		if err != nil {
 			if err.Error() != "EOF" {
 				return fmt.Errorf("error reading from connection: %v", err)
@@ -305,21 +306,55 @@ func handleConnection(conn net.Conn, expectedPassword string) error {
 		if message == get_im_str {
 			get_im = true
 		}
+		spl_msg := strings.Split(message, ":")
 		if get_im {
 			response = ret_im()
-		} else {
-			parse_im(&message)
+		} else if spl_msg[0] == set_im_str {
+			parse_im(&spl_msg[1])
 			fmt.Println(im_map)
 			switch_im()
 		}
 
 		// Send response back to client
-		_, err = conn.Write([]byte(response))
+		_, err = conn.Write(str2nulbs(response))
 		if err != nil {
 			return fmt.Errorf("error sending response: %v", err)
 		}
 	}
 }
+
+
+
+func readUntilNull(reader *bufio.Reader) (string, error) {
+	var result strings.Builder
+	for {
+		b, err := reader.ReadByte()
+		if err != nil {
+			return "", err
+		}
+		if b == null_b {
+			break
+		}
+		result.WriteByte(b)
+	}
+	return result.String(), nil
+}
+
+
+const null_b byte = '\u0000'
+var null_bsl []byte = []byte{0}
+
+
+func str2nulbs(s string) []byte {
+	b := []byte(s)
+	b = append(b, null_b)
+	return b
+}
+
+
+
+const send_pass_str string = "com:sendpass"
+const send_msg_str string = "com:sendmsg"
 
 func sendToIP(ipAddr string, message string, password string, port int) {
 	if isIPv6(ipAddr) {
@@ -337,21 +372,84 @@ func sendToIP(ipAddr string, message string, password string, port int) {
 	}
 	defer conn.Close()
 
+	// Send an initial message indicating readiness to receive the password
+	if debug {
+		fmt.Println("sending readiness message")
+	}
+	_, err = conn.Write(str2nulbs(send_pass_str))
+	if err != nil {
+		log.Fatalf("Error sending readiness message: %v", err)
+	}
+
+	// Set a read deadline for receiving the 'send_pass_str' from the server
+	conn.SetReadDeadline(time.Now().Add(time.Duration(timeout) * time.Millisecond))
+
+	// Read response from the server and wait for 'send_pass_str'
+	if debug {
+		fmt.Println("waiting for 'send_pass_str'")
+	}
+	bufReader := bufio.NewReader(conn)
+	response, err := bufReader.ReadString(null_b)
+	if err != nil {
+		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			log.Fatalf("Timeout waiting for server response: %v", err)
+		} else {
+			log.Fatalf("Error reading response: %v", err)
+		}
+	}
+	if response != send_pass_str {
+		log.Fatalf("Unexpected server response: %s", response)
+	}
+
 	// Send password hash
 	passwordHash := hashPassword(password)
 	if debug {
 		fmt.Println("sending pass")
 	}
-	_, err = conn.Write([]byte(passwordHash))
+	_, err = conn.Write(str2nulbs(passwordHash))
 	if err != nil {
 		log.Fatalf("Error sending password hash: %v", err)
 	}
+
+
+	// Send an initial message indicating readiness to receive the password
+	if debug {
+		fmt.Println("sending readiness message")
+	}
+	_, err = conn.Write(str2nulbs(send_pass_str))
+	if err != nil {
+		log.Fatalf("Error sending readiness message: %v", err)
+	}
+
+	// Set a read deadline for receiving the 'send_pass_str' from the server
+	conn.SetReadDeadline(time.Now().Add(time.Duration(timeout) * time.Millisecond))
+
+	// Read response from the server and wait for 'send_pass_str'
+	if debug {
+		fmt.Println("waiting for 'send_pass_str'")
+	}
+	bufReader = bufio.NewReader(conn)
+	response, err = bufReader.ReadString(null_b)
+	if err != nil {
+		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			log.Fatalf("Timeout waiting for server response: %v", err)
+		} else {
+			log.Fatalf("Error reading response: %v", err)
+		}
+	}
+	if response != send_pass_str {
+		log.Fatalf("Unexpected server response: %s", response)
+	}
+
+
+
+
 
 	// Send message
 	if debug {
 		fmt.Println("sending msg")
 	}
-	_, err = conn.Write([]byte(message))
+	_, err = conn.Write(str2nulbs(message))
 	if err != nil {
 		log.Fatalf("Error sending data: %v", err)
 	}
@@ -363,7 +461,7 @@ func sendToIP(ipAddr string, message string, password string, port int) {
 	if debug {
 		fmt.Println("recv resp")
 	}
-	response, err := bufio.NewReader(conn).ReadString('\n')
+	response, err = bufio.NewReader(conn).ReadString(null_b)
 	if err != nil {
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 			log.Fatalf("Timeout waiting for server response: %v", err)
@@ -378,6 +476,6 @@ func sendToIP(ipAddr string, message string, password string, port int) {
 
 func hashPassword(password string) string {
 	hash := sha512.New()
-	hash.Write([]byte(password))
+	hash.Write(str2nulbs(password))
 	return hex.EncodeToString(hash.Sum(nil))
 }
