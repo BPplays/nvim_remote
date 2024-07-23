@@ -317,11 +317,11 @@ func handleConnection(conn net.Conn, expectedPassword string) error {
 			switch_im()
 		}
 
-		// Send response back to client
-		_, err = conn.Write(str2nulbs(send_msg_str))
-		if err != nil {
-			log.Println(err)
-		}
+		// // Send response back to client
+		// _, err = conn.Write(str2nulbs(send_msg_str))
+		// if err != nil {
+		// 	log.Println(err)
+		// }
 
 		_, err = conn.Write(str2nulbs(response))
 		if err != nil {
@@ -431,25 +431,25 @@ func sendToIP(ipAddr string, message string, password string, port int) {
 
 
 
-	// Set a read deadline for receiving the 'send_pass_str' from the server
-	conn.SetReadDeadline(time.Now().Add(time.Duration(timeout) * time.Millisecond))
-
-	// Read response from the server and wait for 'send_pass_str'
-	if debug {
-		fmt.Println("waiting for 'send_msg_str'")
-	}
-	bufReader = bufio.NewReader(conn)
-	response, err = readUntilNull(bufReader)
-	if err != nil {
-		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-			log.Fatalf("Timeout waiting for server response: %v", err)
-		} else {
-			log.Fatalf("Error reading response: %v", err)
-		}
-	}
-	if response != send_msg_str {
-		log.Fatalf("Unexpected server response: %s", response)
-	}
+	// // Set a read deadline for receiving the 'send_pass_str' from the server
+	// conn.SetReadDeadline(time.Now().Add(time.Duration(timeout) * time.Millisecond))
+	//
+	// // Read response from the server and wait for 'send_pass_str'
+	// if debug {
+	// 	fmt.Println("waiting for 'send_msg_str'")
+	// }
+	// bufReader = bufio.NewReader(conn)
+	// response, err = readUntilNull(bufReader)
+	// if err != nil {
+	// 	if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+	// 		log.Fatalf("Timeout waiting for server response: %v", err)
+	// 	} else {
+	// 		log.Fatalf("Error reading response: %v", err)
+	// 	}
+	// }
+	// if response != send_msg_str {
+	// 	log.Fatalf("Unexpected server response: %s", response)
+	// }
 
 
 
