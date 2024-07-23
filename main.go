@@ -398,7 +398,7 @@ func sendToIP(ipAddr string, message string, password string, port int) {
 		fmt.Println("waiting for 'send_pass_str'")
 	}
 	bufReader := bufio.NewReader(conn)
-	response, err := bufReader.ReadString(null_b)
+	response, err := readUntilNull(bufReader)
 	if err != nil {
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 			log.Fatalf("Timeout waiting for server response: %v", err)
@@ -439,7 +439,7 @@ func sendToIP(ipAddr string, message string, password string, port int) {
 		fmt.Println("waiting for 'send_msg_str'")
 	}
 	bufReader = bufio.NewReader(conn)
-	response, err = bufReader.ReadString(null_b)
+	response, err = readUntilNull(bufReader)
 	if err != nil {
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 			log.Fatalf("Timeout waiting for server response: %v", err)
