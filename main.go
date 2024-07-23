@@ -284,6 +284,7 @@ func handleConnection(conn net.Conn, expectedPassword string) error {
 		return fmt.Errorf("error reading password: %v\n", err)
 	}
 
+
 	log.Printf("Received password hash: %s\n", passwordHash)
 	if passwordHash != expectedPassword {
 		fmt.Printf("expected pass: %v\n", expectedPassword)
@@ -293,6 +294,7 @@ func handleConnection(conn net.Conn, expectedPassword string) error {
 	// Process the actual message
 	for {
 		log.Println("Waiting to read message...")
+		conn.Write(str2nulbs(send_pass_str))
 		message, err := reader.ReadString(null_b)
 		if err != nil {
 			if err.Error() != "EOF" {
@@ -316,6 +318,11 @@ func handleConnection(conn net.Conn, expectedPassword string) error {
 		}
 
 		// Send response back to client
+		_, err = conn.Write(str2nulbs(send_msg_str))
+		if err != nil {
+			log.Println(err)
+		}
+
 		_, err = conn.Write(str2nulbs(response))
 		if err != nil {
 			return fmt.Errorf("error sending response: %v", err)
@@ -356,6 +363,7 @@ func str2nulbs(s string) []byte {
 const send_pass_str string = "com:sendpass"
 const send_msg_str string = "com:sendmsg"
 
+
 func sendToIP(ipAddr string, message string, password string, port int) {
 	if isIPv6(ipAddr) {
 		var err error
@@ -372,13 +380,14 @@ func sendToIP(ipAddr string, message string, password string, port int) {
 	}
 	defer conn.Close()
 
-	// Send an initial message indicating readiness to receive the password
+	// Send password hash
+	passwordHash := hashPassword(password)
 	if debug {
-		fmt.Println("sending readiness message")
+		fmt.Println("sending pass")
 	}
-	_, err = conn.Write(str2nulbs(send_pass_str))
+	_, err = conn.Write(str2nulbs(passwordHash))
 	if err != nil {
-		log.Fatalf("Error sending readiness message: %v", err)
+		log.Fatalf("Error sending password hash: %v", err)
 	}
 
 	// Set a read deadline for receiving the 'send_pass_str' from the server
@@ -401,45 +410,9 @@ func sendToIP(ipAddr string, message string, password string, port int) {
 		log.Fatalf("Unexpected server response: %s", response)
 	}
 
-	// Send password hash
-	passwordHash := hashPassword(password)
-	if debug {
-		fmt.Println("sending pass")
-	}
-	_, err = conn.Write(str2nulbs(passwordHash))
-	if err != nil {
-		log.Fatalf("Error sending password hash: %v", err)
-	}
 
 
-	// Send an initial message indicating readiness to receive the password
-	if debug {
-		fmt.Println("sending readiness message")
-	}
-	_, err = conn.Write(str2nulbs(send_pass_str))
-	if err != nil {
-		log.Fatalf("Error sending readiness message: %v", err)
-	}
 
-	// Set a read deadline for receiving the 'send_pass_str' from the server
-	conn.SetReadDeadline(time.Now().Add(time.Duration(timeout) * time.Millisecond))
-
-	// Read response from the server and wait for 'send_pass_str'
-	if debug {
-		fmt.Println("waiting for 'send_pass_str'")
-	}
-	bufReader = bufio.NewReader(conn)
-	response, err = bufReader.ReadString(null_b)
-	if err != nil {
-		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-			log.Fatalf("Timeout waiting for server response: %v", err)
-		} else {
-			log.Fatalf("Error reading response: %v", err)
-		}
-	}
-	if response != send_pass_str {
-		log.Fatalf("Unexpected server response: %s", response)
-	}
 
 
 
@@ -453,6 +426,36 @@ func sendToIP(ipAddr string, message string, password string, port int) {
 	if err != nil {
 		log.Fatalf("Error sending data: %v", err)
 	}
+
+
+
+
+
+	// Set a read deadline for receiving the 'send_pass_str' from the server
+	conn.SetReadDeadline(time.Now().Add(time.Duration(timeout) * time.Millisecond))
+
+	// Read response from the server and wait for 'send_pass_str'
+	if debug {
+		fmt.Println("waiting for 'send_msg_str'")
+	}
+	bufReader = bufio.NewReader(conn)
+	response, err = bufReader.ReadString(null_b)
+	if err != nil {
+		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			log.Fatalf("Timeout waiting for server response: %v", err)
+		} else {
+			log.Fatalf("Error reading response: %v", err)
+		}
+	}
+	if response != send_msg_str {
+		log.Fatalf("Unexpected server response: %s", response)
+	}
+
+
+
+
+
+
 
 	// Set a read deadline for receiving a response
 	conn.SetReadDeadline(time.Now().Add(time.Duration(timeout) * time.Millisecond))
@@ -469,8 +472,12 @@ func sendToIP(ipAddr string, message string, password string, port int) {
 			log.Fatalf("Error reading response: %v", err)
 		}
 	}
-	if response != "" {
+	if debug {
 		fmt.Printf("Server response: %s", response)
+	}
+
+	if get_im {
+		fmt.Print(response)
 	}
 }
 
