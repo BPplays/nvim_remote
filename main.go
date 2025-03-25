@@ -208,10 +208,12 @@ func switch_im() {
 
 func ret_im() string {
 	im_cmd := ""
+	im_m_name := ""
 	var im_mode []string
 	switch cos {
 	case Windows:
 		im_cmd = "im-select.exe"
+		im_m_name = "im-select"
 
 	case Linux:
 		switch get_lin_im() {
@@ -239,7 +241,10 @@ func ret_im() string {
 
 	// Print the output
 	fmt.Printf("%v output: %s\n", im_cmd, output)
-	return string(output)
+
+	formatted := fmt.Sprintf("%v:%v=%v", set_im_str, im_m_name, string(output))
+	fmt.Println("returning:", formatted)
+	return formatted
 }
 
 
@@ -484,7 +489,7 @@ func sendToIP(ipAddr string, message string, password string, port int) {
 
 func hashPassword(password string) string {
 	hash := sha512.New()
-	hash.Write(str2nulbs(password))
+	hash.Write([]byte(password))
 	return hex.EncodeToString(hash.Sum(nil))
 }
 

@@ -1,4 +1,4 @@
-module github.com/BPplays/remote_im_change
+module github.com/BPplays/nvim_remote
 
 go 1.22.5
 
