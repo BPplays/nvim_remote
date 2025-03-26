@@ -95,15 +95,19 @@ func main() {
 
 	pflag.Parse()
 
+	if !debug {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
-	hash_pass := hashPassword(password)
+
+	// hash_pass := hashPassword(password)
 
 	if isServer {
-		startServer(hash_pass, port)
+		startServer(password, port)
 	} else if ipAddr != "" {
 		if im_message == "" {
 			get_im = true
-			im_message = get_im_str
+			// im_message = get_im_str
 		}
 		if password == "" {
 			fmt.Println("Please provide a password with -p.")
@@ -256,7 +260,11 @@ func ret_im() (im_name string, im_value string) {
 	// Print the output
 	fmt.Printf("%v output: %s\n", im_cmd, output)
 
-	return im_m_name, string(output)
+	formatted := string(output)
+	formatted = strings.TrimSuffix(formatted, "\r\n") // Remove \r\n
+	formatted = strings.TrimSuffix(formatted, "\n")   // Remove \n if it remains
+
+	return im_m_name, formatted
 }
 
 
@@ -265,7 +273,7 @@ func startServer(expectedPassword string, port int) {
 	r := gin.Default()
 
 	authMiddleware := gin.BasicAuth(gin.Accounts{
-		"user": "password", // Replace with your credentials
+		"admin": expectedPassword, // Replace with your credentials
 	})
 
 	r.GET("/current_ime", authMiddleware, func(c *gin.Context) {
@@ -292,7 +300,7 @@ func startServer(expectedPassword string, port int) {
 		fmt.Println(im_map)
 		switch_im()
 
-		c.JSON(http.StatusOK, gin.H{"message": "got_ime"})
+		c.JSON(http.StatusOK, gin.H{"message": "set_ime"})
 	})
 
 	r.POST("/clipboard_set", authMiddleware, func(c *gin.Context) {
@@ -305,10 +313,10 @@ func startServer(expectedPassword string, port int) {
 
 		set_clipboard(reqData.Put)
 
-		c.JSON(http.StatusOK, gin.H{"message": "got_clip"})
+		c.JSON(http.StatusOK, gin.H{"message": "set_clip"})
 	})
 
-	r.Run(fmt.Sprintf("[::]:%v", port), fmt.Sprintf("0.0.0.0:%v", port))
+	r.Run(fmt.Sprintf("[::]:%v", port))
 }
 
 func set_clipboard(str string) {
