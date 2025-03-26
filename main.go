@@ -16,10 +16,23 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+	clipboard "github.com/dece2183/go-clipboard"
+
+	"github.com/gin-gonic/gin"
+	"net/http"
 )
+
+type ime_req struct {
+	Ime string    `json:"Ime" binding:"required"`
+}
+
+type clip_req struct {
+	Put string    `json:"Put" binding:"required"`
+}
 
 // OS represents the operating system type.
 type OS int
+
 
 // Define constants for each operating system.
 const (
@@ -250,27 +263,52 @@ func ret_im() string {
 
 
 func startServer(expectedPassword string, port int) {
-	listener, err := net.Listen("tcp", ":"+strconv.Itoa(port))
-	if err != nil {
-		log.Fatalf("Error starting TCP server: %v", err)
-	}
-	defer listener.Close()
-	fmt.Printf("Listening for incoming connections on port %d...\n", port)
+	r := gin.Default()
+	r.GET("/current_ime", gin.BasicAuth(gin.Accounts{
+		"admin": expectedPassword,
+	}),
+	func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"data": "resource data",
+		})
+	})
 
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			log.Printf("Error accepting connection: %v", err)
-			continue
+	r.POST("/current_ime", gin.BasicAuth(gin.Accounts{
+		"admin": expectedPassword,
+	}),
+	func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"data": "resource data",
+		})
+	})
+
+	r.POST("/clipboard_set", func(c *gin.Context) {
+		var reqData clip_req
+
+		// Bind JSON input to struct
+		if err := c.ShouldBindJSON(&reqData); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
 		}
-		go func(c net.Conn) {
-			if err := handleConnection(c, expectedPassword); err != nil {
-				fmt.Fprintf(c, "Error: %v\n", err)
-			}
-		}(conn)
-	}
+
+		// Run the function with the received data
+		set_clipboard(reqData.Put)
+
+		// Return response
+		c.JSON(http.StatusOK, gin.H{"message": "got_clip"})
+	})
+
+	r.Run(fmt.Sprintf("[::]:%v", port), fmt.Sprintf("0.0.0.0:%v", port))
 }
 
+func set_clipboard(str string) {
+	c := clipboard.New(clipboard.ClipboardOptions{})
+
+	if err := c.CopyText(str); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
 
 
 const get_im_str string = "mode:getim"
