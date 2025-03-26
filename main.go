@@ -23,7 +23,8 @@ import (
 )
 
 type ime_req struct {
-	Ime string    `json:"Ime" binding:"required"`
+	IME string    `json:"IME" binding:"required"`
+	IME_value string    `json:"IME_value" binding:"required"`
 }
 
 type clip_req struct {
@@ -219,7 +220,7 @@ func switch_im() {
 
 
 
-func ret_im() string {
+func ret_im() (im_name string, im_value string) {
 	im_cmd := ""
 	im_m_name := ""
 	var im_mode []string
@@ -249,52 +250,61 @@ func ret_im() string {
 	output, err := cmd.Output()
 	if err != nil {
 		fmt.Printf("Error executing command: %s\n", err)
-		return ""
+		return "", ""
 	}
 
 	// Print the output
 	fmt.Printf("%v output: %s\n", im_cmd, output)
 
-	formatted := fmt.Sprintf("%v:%v=%v", set_im_str, im_m_name, string(output))
-	fmt.Println("returning:", formatted)
-	return formatted
+	return im_m_name, string(output)
 }
 
 
 
 func startServer(expectedPassword string, port int) {
 	r := gin.Default()
-	r.GET("/current_ime", gin.BasicAuth(gin.Accounts{
-		"admin": expectedPassword,
-	}),
-	func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"data": "resource data",
-		})
+
+	authMiddleware := gin.BasicAuth(gin.Accounts{
+		"user": "password", // Replace with your credentials
 	})
 
-	r.POST("/current_ime", gin.BasicAuth(gin.Accounts{
-		"admin": expectedPassword,
-	}),
-	func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"data": "resource data",
-		})
+	r.GET("/current_ime", authMiddleware, func(c *gin.Context) {
+		im_name, im_value := ret_im()
+		response := ime_req{
+			IME:       im_name,
+			IME_value: im_value,
+		}
+
+		c.JSON(http.StatusOK, response)
 	})
 
-	r.POST("/clipboard_set", func(c *gin.Context) {
-		var reqData clip_req
 
-		// Bind JSON input to struct
+
+	r.POST("/current_ime", authMiddleware, func(c *gin.Context) {
+		var reqData ime_req
+
 		if err := c.ShouldBindJSON(&reqData); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		// Run the function with the received data
+		im_map[reqData.IME] = reqData.IME_value
+		fmt.Println(im_map)
+		switch_im()
+
+		c.JSON(http.StatusOK, gin.H{"message": "got_ime"})
+	})
+
+	r.POST("/clipboard_set", authMiddleware, func(c *gin.Context) {
+		var reqData clip_req
+
+		if err := c.ShouldBindJSON(&reqData); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
 		set_clipboard(reqData.Put)
 
-		// Return response
 		c.JSON(http.StatusOK, gin.H{"message": "got_clip"})
 	})
 
@@ -311,68 +321,68 @@ func set_clipboard(str string) {
 }
 
 
-const get_im_str string = "mode:getim"
-const set_im_str string = "set_modes"
+// const get_im_str string = "mode:getim"
+// const set_im_str string = "set_modes"
 
 
 
-func handleConnection(conn net.Conn, expectedPassword string) error {
-	var get_im bool = false
-	defer conn.Close()
-	reader := bufio.NewReader(conn)
-
-	// Read and verify password
-	log.Println("Waiting to read password...")
-	passwordHash, err := readUntilNull(reader)
-	if err != nil {
-		return fmt.Errorf("error reading password: %v\n", err)
-	}
-
-
-	log.Printf("Received password hash: %s\n", passwordHash)
-	if secCompareStrings(passwordHash, expectedPassword) != true {
-		fmt.Printf("expected pass: %v\n", expectedPassword)
-		return fmt.Errorf("password verification failed")
-	}
-
-	// Process the actual message
-	for {
-		log.Println("Waiting to read message...")
-		conn.Write(str2nulbs(send_pass_str))
-		message, err := readUntilNull(reader)
-		if err != nil {
-			if err.Error() != "EOF" {
-				return fmt.Errorf("error reading from connection: %v", err)
-			}
-			return nil
-		}
-		response := "Message processed successfully\n"
-
-		log.Printf("Received message: %s", message)
-		if message == get_im_str {
-			get_im = true
-		}
-		spl_msg := strings.Split(message, ":")
-		if get_im {
-			response = ret_im()
-		} else if spl_msg[0] == set_im_str {
-			parse_im(&spl_msg[1])
-			fmt.Println(im_map)
-			switch_im()
-		}
-
-		// // Send response back to client
-		// _, err = conn.Write(str2nulbs(send_msg_str))
-		// if err != nil {
-		// 	log.Println(err)
-		// }
-
-		_, err = conn.Write(str2nulbs(response))
-		if err != nil {
-			return fmt.Errorf("error sending response: %v", err)
-		}
-	}
-}
+// func handleConnection(conn net.Conn, expectedPassword string) error {
+// 	var get_im bool = false
+// 	defer conn.Close()
+// 	reader := bufio.NewReader(conn)
+//
+// 	// Read and verify password
+// 	log.Println("Waiting to read password...")
+// 	passwordHash, err := readUntilNull(reader)
+// 	if err != nil {
+// 		return fmt.Errorf("error reading password: %v\n", err)
+// 	}
+//
+//
+// 	log.Printf("Received password hash: %s\n", passwordHash)
+// 	if secCompareStrings(passwordHash, expectedPassword) != true {
+// 		fmt.Printf("expected pass: %v\n", expectedPassword)
+// 		return fmt.Errorf("password verification failed")
+// 	}
+//
+// 	// Process the actual message
+// 	for {
+// 		log.Println("Waiting to read message...")
+// 		conn.Write(str2nulbs(send_pass_str))
+// 		message, err := readUntilNull(reader)
+// 		if err != nil {
+// 			if err.Error() != "EOF" {
+// 				return fmt.Errorf("error reading from connection: %v", err)
+// 			}
+// 			return nil
+// 		}
+// 		response := "Message processed successfully\n"
+//
+// 		log.Printf("Received message: %s", message)
+// 		if message == get_im_str {
+// 			get_im = true
+// 		}
+// 		spl_msg := strings.Split(message, ":")
+// 		if get_im {
+// 			response = ret_im()
+// 		} else if spl_msg[0] == set_im_str {
+// 			parse_im(&spl_msg[1])
+// 			fmt.Println(im_map)
+// 			switch_im()
+// 		}
+//
+// 		// // Send response back to client
+// 		// _, err = conn.Write(str2nulbs(send_msg_str))
+// 		// if err != nil {
+// 		// 	log.Println(err)
+// 		// }
+//
+// 		_, err = conn.Write(str2nulbs(response))
+// 		if err != nil {
+// 			return fmt.Errorf("error sending response: %v", err)
+// 		}
+// 	}
+// }
 
 
 
